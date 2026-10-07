@@ -1,310 +1,172 @@
 # 🛒 Work Shopping Microservices
 
-Sistema de e-commerce desenvolvido com arquitetura de microsserviços, focado em escalabilidade, desacoplamento entre serviços e facilidade de manutenção.
+Sistema de e-commerce em arquitetura de microsserviços, com **Java 21** e **Micronaut 4**, comunicação assíncrona via **Apache Kafka** e ambiente completo orquestrado com **Docker Compose**.
 
-O projeto foi criado com o objetivo de demonstrar conceitos modernos de desenvolvimento backend distribuído, integração entre serviços e utilização de boas práticas de arquitetura.
+O projeto foi criado para praticar backend distribuído: separação por domínio, mensageria entre serviços, banco de dados por serviço e observabilidade.
 
----
-
-# 📚 Sumário
-
-* [Sobre o Projeto](#-sobre-o-projeto)
-* [Visualização do Processo BPMN](#-visualização-do-processo-bpmn)
-* [Tecnologias Utilizadas](#-tecnologias-utilizadas)
-* [Estrutura do Projeto](#-estrutura-do-projeto)
-* [Microsserviços](#-microsserviços)
-* [Pré-requisitos](#-pré-requisitos)
-* [Como Executar o Projeto](#-como-executar-o-projeto)
-* [Docker](#-docker)
-* [Endpoints](#-endpoints)
-* [Boas Práticas Aplicadas](#-boas-práticas-aplicadas)
-* [Melhorias Futuras](#-melhorias-futuras)
-* [Autor](#-autor)
+> Frontend: [work-shopping-microservices-frontend](https://github.com/RavikFerreira/work-shopping-microservices-frontend) (React + TypeScript).
 
 ---
 
-# 📖 Sobre o Projeto
+## 📚 Sumário
 
-O **Work Shopping Microservices** é uma aplicação baseada em microsserviços voltada para um cenário de marketplace/e-commerce.
-
-A proposta da aplicação é separar responsabilidades em serviços independentes, permitindo:
-
-* Escalabilidade horizontal;
-* Facilidade de manutenção;
-* Resiliência;
-* Melhor organização do domínio;
-* Comunicação desacoplada entre serviços.
-
-O projeto segue conceitos de arquitetura distribuída e pode ser utilizado como base de estudos para:
-
-* Microsserviços;
-* Docker;
-* APIs REST;
-* Mensageria;
-* Observabilidade.
+- [Visão geral](#-visão-geral)
+- [Fluxo de negócio (BPMN)](#️-fluxo-de-negócio-bpmn)
+- [Arquitetura](#-arquitetura)
+- [Microsserviços](#-microsserviços)
+- [Tecnologias](#-tecnologias)
+- [Como executar](#️-como-executar)
+- [Portas e acessos](#-portas-e-acessos)
+- [Observabilidade](#-observabilidade)
+- [Melhorias futuras](#-melhorias-futuras)
+- [Autor](#-autor)
 
 ---
 
-# 🗺️ Visualização do Processo BPMN
+## 📖 Visão geral
 
-Abaixo está a representação visual do fluxo de negócio desenhado para esta arquitetura:
+A aplicação separa as responsabilidades de um e-commerce em serviços independentes:
 
-<p align="center">
-  <img src="./processo.svg" alt="Diagrama BPMN" width="100%">
-</p>
+- **shopping-services:** pedidos e carrinho de compras.
+- **product-validation-service:** validação dos produtos de um pedido.
+- **inventory-service:** controle de estoque.
+- **payment-services:** processamento de pagamentos.
+- **orchestrator-services:** coordenação do fluxo entre os serviços.
 
----
-## Características da arquitetura
-
-* Serviços independentes;
-* Banco de dados por serviço;
-* Comunicação desacoplada;
-* Containerização com Docker;
-* Escalabilidade horizontal;
-* Separação por domínio.
+Os serviços se comunicam por eventos no Kafka, sem chamadas diretas entre si.
 
 ---
 
-# 🚀 Tecnologias Utilizadas
+## 🗺️ Fluxo de negócio (BPMN)
 
-## Backend
+O processo de negócio foi modelado em BPMN. O arquivo editável é o `processo.bpmn`, na raiz do repositório, e pode ser aberto em [bpmn.io](https://bpmn.io).
 
-* Java
-* Spring Boot
-* Spring Data JPA
-* Maven
-
-## Banco de Dados
-
-* PostgreSQL
-* MongoDB
-
-## Infraestrutura
-
-* Docker
-* Docker Compose
-
-## Comunicação
-
-* REST APIs
-
-## Ferramentas
-
-* Git
-* GitHub
-* Postman
-* Swagger / OpenAPI
+![Diagrama BPMN](processo.png)
 
 ---
 
-# 📂 Estrutura do Projeto
+## 🏗 Arquitetura
 
-```text
-work-shopping-microsservices/
-│
-├── product-service/
-├── order-service/
-├── payment-service/
-├── docker-compose.yml
-├── processo.bpmn
-├── processo.svg
-└── README.md
+```mermaid
+flowchart LR
+    K[(Apache Kafka)]
+
+    ORQ[orchestrator-services]
+    SHOP[shopping-services]
+    PV[product-validation-service]
+    INV[inventory-service]
+    PAY[payment-services]
+
+    MDB[(MongoDB)]
+    PVDB[(PostgreSQL<br/>product-db)]
+    INVDB[(PostgreSQL<br/>inventory-db)]
+    PAYDB[(PostgreSQL<br/>payment-db)]
+
+    ORQ <--> K
+    SHOP <--> K
+    PV <--> K
+    INV <--> K
+    PAY <--> K
+
+    SHOP --> MDB
+    PV --> PVDB
+    INV --> INVDB
+    PAY --> PAYDB
 ```
 
----
+**Características:**
 
-# 🔧 Microsserviços
-
-## 📦 Product Service
-
-Responsável por:
-
-* Cadastro de produtos;
-* Consulta de catálogo;
-* Controle de estoque.
+- Serviços independentes, cada um com seu próprio container Docker.
+- Banco de dados por serviço (PostgreSQL ou MongoDB, conforme o domínio).
+- Comunicação assíncrona por eventos via Kafka, com o Redpanda Console para inspecionar tópicos e mensagens.
+- Ambiente inteiro definido em um único `docker-compose.yaml`.
 
 ---
 
-## 🛍 Order Service
+## 🔧 Microsserviços
 
-Responsável por:
-
-* Criação de pedidos;
-* Processamento de compras;
-* Integração entre serviços.
-
----
-
-## 💳 Payment Service
-
-Responsável por:
-
-* Processamento de pagamentos;
-* Validação de transações;
-* Status de pagamento.
+| Serviço | Responsabilidade | Banco | Porta |
+| --- | --- | --- | --- |
+| `shopping-services` | Pedidos e carrinho | MongoDB | 8083 |
+| `product-validation-service` | Validação de produtos | PostgreSQL | 8085 |
+| `inventory-service` | Estoque | PostgreSQL | 8086 |
+| `payment-services` | Pagamentos | PostgreSQL | 8082 |
+| `orchestrator-services` | Orquestração do fluxo | n/a | 4000 |
 
 ---
 
-# 📋 Pré-requisitos
+## 🚀 Tecnologias
 
-Antes de executar o projeto, você precisa ter instalado:
-
-* Docker
-* Docker Compose
-* Java 17+
-* Maven
-* Git
+| Categoria | Tecnologias |
+| --- | --- |
+| Linguagem e frameworks | Java 21, Micronaut 4 |
+| Mensageria | Apache Kafka, Redpanda Console |
+| Bancos de dados | PostgreSQL 16, MongoDB |
+| Cache | Redis |
+| Observabilidade | Prometheus, Grafana |
+| Infraestrutura | Docker, Docker Compose |
+| Documentação da API | Swagger / OpenAPI |
 
 ---
 
-# ▶️ Como Executar o Projeto
+## ▶️ Como executar
 
-## 1. Clone o repositório
+**Pré-requisitos:** Docker e Docker Compose instalados.
 
 ```bash
-git clone https://github.com/RavikFerreira/work-shopping-microsservices.git
-```
+# 1. Clone o repositório
+git clone https://github.com/RavikFerreira/work-shopping-microservices.git
 
-## 2. Acesse a pasta do projeto
+# 2. Entre na pasta
+cd work-shopping-microservices
 
-```bash
-cd work-shopping-microsservices
-```
-
-## 3. Execute os containers
-
-```bash
-docker-compose up --build
-```
-
-## 4. Acesse os serviços
-
-| Serviço         | Porta |
-| --------------- | ----: |
-| Product Service |  8081 |
-| Order Service   |  8082 |
-| Payment Service |  8084 |
-
----
-
-# 🐳 Docker
-
-O projeto utiliza Docker para facilitar:
-
-* Ambiente padronizado;
-* Deploy;
-* Escalabilidade;
-* Isolamento dos serviços.
-
-Para subir todos os serviços:
-
-```bash
-docker-compose up -d
+# 3. Suba todo o ambiente (serviços, bancos, Kafka e observabilidade)
+docker compose up --build
 ```
 
 Para derrubar os containers:
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ---
 
-# 🔌 Endpoints
+## 🔌 Portas e acessos
 
-## Produtos
-
-```http
-GET /products
-POST /products
-GET /products/{id}
-```
-
-## Pedidos
-
-```http
-POST /orders
-GET /orders/{id}
-```
+| Componente | Endereço |
+| --- | --- |
+| shopping-services | http://localhost:8083 |
+| payment-services | http://localhost:8082 |
+| product-validation-service | http://localhost:8085 |
+| inventory-service | http://localhost:8086 |
+| orchestrator-services | http://localhost:4000 |
+| Redpanda Console (Kafka) | http://localhost:8000 |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 |
 
 ---
 
-# 📑 Documentação da API
+## 📊 Observabilidade
 
-A documentação pode ser acessada via Swagger:
-
-```text
-http://localhost:8081/swagger-ui.html
-```
+O Prometheus é configurado em `config/prometheus.yml` e o Grafana sobe junto no Docker Compose, na porta 3000, para visualização das métricas.
 
 ---
 
-# ✅ Boas Práticas Aplicadas
+## 📈 Melhorias futuras
 
-* SOLID;
-* Clean Architecture;
-* Separação de responsabilidades;
-* Database per Service;
-* Resiliência entre serviços;
-* Containers independentes.
-
----
-
-# 📈 Melhorias Futuras
-
-* Implementação de CI/CD;
-* Observabilidade com Prometheus e Grafana;
-* Tracing distribuído;
-* Kubernetes;
-* Testes automatizados;
-* Circuit Breaker;
-* Cache distribuído;
-* Deploy em cloud.
+- Testes automatizados (unitários e de integração).
+- Pipeline de CI/CD com GitHub Actions.
+- Dashboards do Grafana versionados no repositório.
+- Tracing distribuído.
+- Variáveis sensíveis fora do `docker-compose.yaml` (arquivo `.env`).
+- Deploy em cloud.
 
 ---
 
-# 👨‍💻 Autor
+## 👨‍💻 Autor
 
-Desenvolvido por Ravik Ferreira.
+Desenvolvido por **José Ravik Ferreira de Moraes**.
 
-**GitHub:**
-[RavikFerreira GitHub](https://github.com/RavikFerreira)
-
-**Projeto:**
-[Work Shopping Microsservices Repository](https://github.com/RavikFerreira/work-shopping-microsservices)
-
----
-
-# ⭐ Contribuição
-
-Contribuições são sempre bem-vindas.
-
-Para contribuir:
-
-1. Faça um fork do projeto;
-2. Crie uma branch:
-
-```bash
-git checkout -b feature/minha-feature
-```
-
-3. Faça o commit:
-
-```bash
-git commit -m "feat: minha nova feature"
-```
-
-4. Faça push:
-
-```bash
-git push origin feature/minha-feature
-```
-
-5. Abra um Pull Request.
-
----
-
-# 📄 Licença
-
-Este projeto está sob a licença MIT.
-
+- GitHub: [RavikFerreira](https://github.com/RavikFerreira)
+- LinkedIn: [ravikferreira](https://www.linkedin.com/in/ravikferreira/)
